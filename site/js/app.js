@@ -140,6 +140,7 @@
     const saved = store.get("bagel-customer-v1", {});
     if (saved.name && !$("#o-name").value) $("#o-name").value = saved.name;
     if (saved.address && !$("#o-addr").value) $("#o-addr").value = saved.address;
+    if (saved.phone && !$("#o-phone").value) $("#o-phone").value = saved.phone;
     if (saved.method) { const r = $(`input[name=method][value="${saved.method}"]`); if (r) r.checked = true; }
     syncMethod(); $("#order-body").hidden = false; $("#order-done").hidden = true; $("#order-msg").textContent = "";
     $("#demo-warn").hidden = !isPlaceholderNumber();
@@ -166,9 +167,21 @@
   });
   function syncMethod() {
     const del = $("input[name=method]:checked").value === "Delivery";
-    $("#addr-field").hidden = !del;
+    $("#addr-label").innerHTML = del ? "Delivery address" : "Your address <small>(optional for pickup)</small>";
+    $("#o-addr").required = del;
   }
   $$("input[name=method]").forEach((r) => r.addEventListener("change", syncMethod));
+  const syncOther = () => {
+    const on = $("#o-other").checked;
+    $("#collector-field").hidden = !on;
+    $("#phone-label").textContent = on ? "Collector's contact number" : "Contact number of the person collecting";
+  };
+  $("#o-other").addEventListener("change", syncOther);
+  const cleanPhone = (v) => { // 07XX / 01XX / +254 / 254 -> 2547XXXXXXXX, else null
+    const d = v.replace(/[^\d+]/g, "").replace(/^\+/, "");
+    const n = /^0[17]\d{8}$/.test(d) ? "254" + d.slice(1) : /^254[17]\d{8}$/.test(d) ? d : /^[17]\d{8}$/.test(d) ? "254" + d : null;
+    return n;
+  };
   const isPlaceholderNumber = () => /^2547000000/.test(data.settings.whatsapp || "") || !data.settings.whatsapp;
   const clock = (t) => { const [h, m] = t.split(":").map(Number); return `${((h + 11) % 12) + 1}:${two(m)} ${h < 12 ? "AM" : "PM"}`; };
   const niceDate = (iso) => new Date(iso + "T12:00:00").toLocaleDateString("en-KE", { weekday: "short", day: "numeric", month: "short" });
@@ -178,8 +191,9 @@
     const L = lines(), { sum } = totals();
     const out = ["Hi Susan's Bagel Bakery! I'd like to order:", ""];
     L.forEach(({ item, qty }) => out.push(`• ${qty} × ${item.name} (${kes(qty * item.price_kes)})`));
-    out.push("", `Total: ${kes(sum)} (estimate)`, "", `Name: ${f.name}`, f.method);
-    if (f.method === "Delivery") out.push(`Deliver to: ${f.address}`);
+    out.push("", `Total: ${kes(sum)} (estimate)`, "", `Ordered by: ${f.name}`, f.method);
+    if (f.address) out.push(`${f.method === "Delivery" ? "Deliver to" : "Address"}: ${f.address}`);
+    out.push(`Collector: ${f.other && f.collector ? f.collector : f.name}, +${f.phoneIntl}`);
     out.push(`When: ${niceDate(f.date)}, ${clock(f.time)}`);
     if (f.notes) out.push(`Notes: ${f.notes}`);
     out.push("", "Sent from the website.");
@@ -193,12 +207,15 @@
     const min = Number(data.settings.min_order_kes || 0), { sum } = totals();
     if (!fd.name.trim()) return fail("#o-name", "Add your name so we know who the order is for.");
     if (fd.method === "Delivery" && !fd.address.trim()) return fail("#o-addr", "Add a delivery address.");
+    if (fd.other && !fd.collector.trim()) return fail("#o-cname", "Add the name of the person collecting.");
+    const phoneIntl = cleanPhone(fd.phone || "");
+    if (!phoneIntl) return fail("#o-phone", "Add a Kenyan phone number, like 0712 345 678.");
     if (!fd.date || fd.date < localISO(new Date())) return fail("#o-date", "Pick today or a later day.");
     if (!fd.time) return fail("#o-time", "Pick a time.");
     if (min && sum < min) { msg.className = "form-msg err"; msg.textContent = `Minimum order is ${kes(min)}.`; return; }
     msg.textContent = "";
-    store.set("bagel-customer-v1", { name: fd.name.trim(), address: fd.address.trim(), method: fd.method });
-    const url = waURL(buildMessage({ ...fd, name: fd.name.trim(), address: fd.address.trim(), notes: fd.notes.trim() }));
+    store.set("bagel-customer-v1", { name: fd.name.trim(), address: fd.address.trim(), method: fd.method, phone: fd.phone.trim() });
+    const url = waURL(buildMessage({ ...fd, name: fd.name.trim(), address: fd.address.trim(), notes: fd.notes.trim(), collector: (fd.collector || "").trim(), other: !!fd.other, phoneIntl }));
     $("#wa-retry").href = url;
     $("#order-body").hidden = true; $("#order-done").hidden = false; $("#done-title").focus();
     const w = window.open(url, "_blank", "noopener"); if (!w) location.href = url;

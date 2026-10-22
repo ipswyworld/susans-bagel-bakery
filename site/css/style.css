@@ -307,3 +307,7 @@ body:has(dialog[open]) { overflow: hidden; }
 .noscript a { color: #fff; }
 .done-title:focus { outline: none; }
 @media (forced-colors: active) { .btn, .add-btn, .stepper, input, textarea { border: 2px solid ButtonText; } .badge { filter: none; } }
+
+/* order form: collector toggle */
+.chk { display: inline-flex; gap: .6rem; align-items: center; font-weight: 700; min-height: 2.75rem; cursor: pointer; }
+.chk input { width: 1.4rem; height: 1.4rem; accent-color: var(--brown); flex: none; }

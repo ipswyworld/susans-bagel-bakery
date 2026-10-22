@@ -464,9 +464,20 @@
         <label class="pick"><input type="radio" name="method" value="Pickup" checked><span>Pickup</span></label>
         <label class="pick"><input type="radio" name="method" value="Delivery"><span>Delivery</span></label>
       </fieldset>
-      <div class="field" id="addr-field" hidden>
-        <label for="o-addr">Delivery address</label>
-        <textarea id="o-addr" name="address" rows="2" maxlength="240" autocomplete="street-address"></textarea>
+      <div class="field" id="addr-field">
+        <label for="o-addr" id="addr-label">Your address <small>(optional for pickup)</small></label>
+        <textarea id="o-addr" name="address" rows="2" maxlength="240" autocomplete="street-address" placeholder="Building, street, area"></textarea>
+      </div>
+      <div class="field">
+        <label class="chk"><input type="checkbox" id="o-other" name="other"> Someone else is collecting or receiving</label>
+      </div>
+      <div class="field" id="collector-field" hidden>
+        <label for="o-cname">Collector's name</label>
+        <input id="o-cname" name="collector" maxlength="60" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="o-phone" id="phone-label">Contact number of the person collecting</label>
+        <input id="o-phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" maxlength="20" placeholder="0712 345 678" required>
       </div>
       <div class="field two">
         <div>
