@@ -40,6 +40,17 @@
   .pw-eye:hover { background: var(--yellow); }
   .pw-eye .off { display: none; } .pw-eye[aria-pressed=true] .on { display: none; } .pw-eye[aria-pressed=true] .off { display: block; }
   .pw-card { margin-top: 2rem; padding-top: 1.5rem; border-top: 2px solid var(--ink); max-width: 26rem; }
+  .qp { display: grid; grid-template-columns: 1fr 7.5rem; gap: .4rem .9rem; align-items: center; padding: .7rem 0; border-bottom: 2px dotted var(--brown); }
+  .qp .nm { font-weight: 700; }
+  .qp .price-in { display: flex; align-items: center; gap: .4rem; }
+  .qp .price-in span { font-weight: 700; }
+  .qp input[type=number] { min-height: 2.75rem; padding: .5rem .7rem; text-align: right; }
+  .qp .chk { grid-column: 1 / -1; min-height: 2rem; font-weight: 600; }
+  .qp.changed { background: oklch(0.9 0.1 85); margin-inline: -.6rem; padding-inline: .6rem; border-radius: 10px; }
+  .qp-bar { position: sticky; bottom: .75rem; display: flex; gap: .8rem; align-items: center; flex-wrap: wrap; margin-top: 1rem; }
+  @media (min-width: 40rem) { .qp { grid-template-columns: 1fr 8rem auto; } .qp .chk { grid-column: auto; } }
+  details.more { margin-top: 2rem; border-top: 2px solid var(--ink); padding-top: 1rem; }
+  details.more > summary { cursor: pointer; font: 800 1.5rem/1.2 var(--display); min-height: 2.75rem; }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -137,11 +148,40 @@
         ${m.id ? `<button class="btn btn-ghost" data-do="del" type="button">Delete</button>` : ""}
       </div>
     </div>`;
+  let ITEMS = [];
   async function loadMenu() {
-    const items = await api("/api/admin/menu");
-    $("#tab-menu").innerHTML = `<h2 style="font-size:1.8rem;margin-bottom:.5rem">Menu</h2><p class="fine" style="margin:0 0 .5rem">Changes show on the site straight away. Untick "Available today" to mark an item sold out.</p>`
+    const items = ITEMS = await api("/api/admin/menu");
+    $("#tab-menu").innerHTML = `<h2 style="font-size:1.8rem;margin-bottom:.5rem">Menu and prices</h2>
+      <p class="fine" style="margin:0 0 .75rem">Change a price or untick "Available today" to mark a bagel sold out, then press Save. Changes show on the website straight away.</p>
+      <form id="prices-form">` + items.map((m) => `
+        <div class="qp" data-id="${m.id}">
+          <span class="nm">${esc(m.name)}</span>
+          <div class="price-in"><span>KES</span><input type="number" inputmode="numeric" min="0" step="5" value="${m.price_kes}" data-orig="${m.price_kes}" aria-label="Price of ${esc(m.name)} in KES"></div>
+          <label class="chk"><input type="checkbox" ${m.available ? "checked" : ""} data-orig="${m.available ? 1 : 0}"> Available today</label>
+        </div>`).join("") + `
+        <div class="qp-bar"><button class="btn btn-primary" type="submit" id="qp-save" disabled>Save changes</button><span class="fine" id="qp-count" style="margin:0" role="status"></span></div>
+      </form>
+      <details class="more"><summary>Add or edit items in detail</summary>`
       + `<h3 style="margin:1rem 0 0">Add a new item</h3>` + itemRow({ name: "", description: "", price_kes: 0, category: "bagel", art: "plain", available: true, sort_order: items.length })
-      + `<h3 style="margin:1.5rem 0 0">Current items</h3>` + items.map(itemRow).join("");
+      + `<h3 style="margin:1.5rem 0 0">All items</h3>` + items.map(itemRow).join("") + `</details>`;
+    const form = $("#prices-form");
+    const changed = () => [...form.querySelectorAll(".qp")].filter((r) => { const [p, c] = r.querySelectorAll("input"); return p.value !== p.dataset.orig || (c.checked ? 1 : 0) !== +c.dataset.orig; });
+    const refresh = () => {
+      form.querySelectorAll(".qp").forEach((r) => r.classList.remove("changed")); const ch = changed(); ch.forEach((r) => r.classList.add("changed"));
+      $("#qp-save").disabled = !ch.length; $("#qp-count").textContent = ch.length ? `${ch.length} item${ch.length === 1 ? "" : "s"} changed` : "";
+    };
+    form.addEventListener("input", refresh); form.addEventListener("change", refresh);
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault(); const rows = changed(), btn = $("#qp-save"); btn.disabled = true; btn.textContent = "Saving...";
+      try {
+        for (const r of rows) {
+          const [p, c] = r.querySelectorAll("input"), item = ITEMS.find((m) => String(m.id) === r.dataset.id);
+          const price = Number(p.value); if (!Number.isFinite(price) || price < 0 || p.value === "") throw new Error(`Check the price for ${item.name}`);
+          await api("/api/admin/menu/" + item.id, { method: "PUT", body: JSON.stringify({ ...item, price_kes: price, available: c.checked }) });
+        }
+        toast(`Saved ${rows.length} change${rows.length === 1 ? "" : "s"}`); loadMenu();
+      } catch (err) { toast(err.message); btn.disabled = false; btn.textContent = "Save changes"; }
+    });
   }
   $("#tab-menu").addEventListener("click", async (e) => {
     const b = e.target.closest("[data-do]"); if (!b) return;
