@@ -215,6 +215,7 @@
   function applySettings() {
     const s = data.settings;
     $$("[data-s]").forEach((el) => { if (s[el.dataset.s] != null) el.textContent = s[el.dataset.s]; });
+    const em = $("#email-link"); if (em && s.email) em.href = "mailto:" + s.email;
     $("#wa-link").href = `https://wa.me/${s.whatsapp}`;
     $$('a[href*="instagram.com"]').forEach((a) => (a.href = `https://www.instagram.com/${s.instagram}/`));
     const g = $("#google-review"); g.hidden = !s.google_review_url; if (s.google_review_url) g.href = s.google_review_url;

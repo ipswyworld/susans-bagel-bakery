@@ -30,7 +30,7 @@ python tools/build_static.py --site-url https://YOUR-USER.github.io/susans-bagel
 
 Re-run it after menu or info changes (the live page always shows the latest from the API; the bake is for crawlers and offline fallback).
 
-## Go live
+## Go live (Neon + Render + GitHub Pages)
 
 1. **Database:** create a free Postgres (Neon). Copy its connection string.
 2. **API:** deploy `api/` (start: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`). Env vars: `DATABASE_URL`, `SECRET_KEY`, `ADMIN_PASSWORD_HASH` (from `python -m app.hashpw`), `CORS_ORIGINS=https://YOUR-USER.github.io`.

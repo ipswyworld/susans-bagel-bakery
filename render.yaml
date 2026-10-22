@@ -1,0 +1,21 @@
+# Render Blueprint: New > Blueprint > pick this repo. Free web service, Postgres lives on Neon.
+services:
+  - type: web
+    name: susans-bagel-api
+    runtime: python
+    plan: free
+    rootDir: api
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: DATABASE_URL        # paste the Neon connection string (sync: false = asked in the dashboard)
+        sync: false
+      - key: ADMIN_PASSWORD_HASH # output of: python -m app.hashpw
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: CORS_ORIGINS
+        value: https://ipswyworld.github.io

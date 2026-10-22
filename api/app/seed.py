@@ -5,8 +5,9 @@ from sqlalchemy.orm import Session
 from .models import MenuItem, Review, Setting
 
 DEFAULT_SETTINGS = {
-    "whatsapp": "254700000000",  # PLACEHOLDER: digits only, country code first
-    "instagram": "susansbagelbakery",  # PLACEHOLDER handle
+    "whatsapp": "254708817454",  # digits only, country code first
+    "instagram": "susans_bagel_bakery_",  # no @
+    "email": "nyobunasusan@gmail.com",
     "address": "Add street address, Nairobi",
     "hours": "Mon to Sat, 7am to 5pm",
     "delivery_info": "Delivery within [your area]. Fee confirmed on WhatsApp.",

@@ -99,6 +99,7 @@ def json_ld(data: dict, site_url: str) -> str:
         "image": site_url + "/assets/og-image.jpg",
         "logo": site_url + "/assets/icon-512.png",
         "telephone": "+" + s["whatsapp"],
+        "email": s.get("email", ""),
         "priceRange": f"KES {min(prices)} - KES {max(prices)}",
         "servesCuisine": "Bagels",
         "address": {"@type": "PostalAddress", "streetAddress": s["address"], "addressLocality": "Nairobi", "addressCountry": "KE"},
