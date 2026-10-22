@@ -20,7 +20,20 @@ def hash_password(password: str) -> str:
     return f"scrypt${base64.b64encode(salt).decode()}${base64.b64encode(digest).decode()}"
 
 
-def verify_password(password: str) -> bool:
+def _check_hash(password: str, stored: str) -> bool:
+    try:
+        _, salt_b64, digest_b64 = stored.split("$")
+        expected = base64.b64decode(digest_b64)
+        actual = hashlib.scrypt(password.encode(), salt=base64.b64decode(salt_b64), n=2**14, r=8, p=1)
+        return hmac.compare_digest(expected, actual)
+    except Exception:
+        return False
+
+
+def verify_password(password: str, db_hash: str = "") -> bool:
+    """A password changed in the admin page (stored hash) wins over the deploy-time env value."""
+    if db_hash:
+        return _check_hash(password, db_hash)
     if config.ADMIN_PASSWORD_HASH:
         try:
             _, salt_b64, digest_b64 = config.ADMIN_PASSWORD_HASH.split("$")

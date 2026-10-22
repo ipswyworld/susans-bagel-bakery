@@ -34,6 +34,12 @@
   .tag { font-size: .8rem; padding: .2rem .6rem; border-radius: 99px; border: 2px solid var(--ink); }
   .tag.pending { background: var(--yellow); } .tag.approved { background: var(--brown); color: #fff; } .tag.rejected { background: transparent; color: var(--danger); border-color: var(--danger); }
   .toast { position: fixed; left: 50%; bottom: 1.25rem; translate: -50% 0; background: var(--ink); color: var(--yellow); padding: .8rem 1.4rem; border-radius: 99px; font-weight: 700; z-index: 60; }
+  .pw { position: relative; }
+  .pw input { padding-right: 3.4rem !important; }
+  .pw-eye { position: absolute; right: .3rem; top: 50%; translate: 0 -50%; width: 2.75rem; height: 2.75rem; border: 0; background: transparent; color: var(--ink); border-radius: 10px; cursor: pointer; display: grid; place-items: center; }
+  .pw-eye:hover { background: var(--yellow); }
+  .pw-eye .off { display: none; } .pw-eye[aria-pressed=true] .on { display: none; } .pw-eye[aria-pressed=true] .off { display: block; }
+  .pw-card { margin-top: 2rem; padding-top: 1.5rem; border-top: 2px solid var(--ink); max-width: 26rem; }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -41,9 +47,9 @@
 <div id="login" class="login panel" hidden>
   <h1>Bakery admin</h1>
   <form id="login-form">
-    <div class="field"><label for="pw">Password</label><input id="pw" type="password" autocomplete="current-password" required></div>
-    <p class="form-msg" id="login-msg" role="alert"></p>
-    <button class="btn btn-primary btn-wide" type="submit">Sign in</button>
+    <div class="field"><label for="pw">Password</label><div class="pw"><input id="pw" type="password" autocomplete="current-password" autocapitalize="none" spellcheck="false" required><button class="pw-eye" type="button" aria-pressed="false" aria-label="Show password"><svg class="on" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/></svg><svg class="off" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.2M6.4 6.5A17 17 0 0 0 2 12s3.600 7 10 7a9.700 9.700 0 0 0 4.100-.9M9.900 9.900a3 3 0 0 0 4.200 4.200" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div>
+    <p class="form-msg" id="login-msg" role="status" aria-live="polite"></p>
+    <button class="btn btn-primary btn-wide" id="login-btn" type="submit">Sign in</button>
   </form>
 </div>
 
@@ -77,6 +83,14 @@
     min_order_kes: ["Minimum order in KES (0 for none)", "input"], google_review_url: ["Google review link (optional)", "input"],
   };
 
+  const EYE = `<button class="pw-eye" type="button" aria-pressed="false" aria-label="Show password"><svg class="on" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/></svg><svg class="off" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.2M6.4 6.5A17 17 0 0 0 2 12s3.600 7 10 7a9.700 9.700 0 0 0 4.100-.9M9.900 9.900a3 3 0 0 0 4.200 4.200" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`;
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest(".pw-eye"); if (!b) return;
+    const input = b.parentElement.querySelector("input"), show = input.type === "password";
+    input.type = show ? "text" : "password";
+    b.setAttribute("aria-pressed", show); b.setAttribute("aria-label", show ? "Hide password" : "Show password");
+    input.focus();
+  });
   function toast(t) { const el = $("#toast"); el.textContent = t; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => (el.hidden = true), 2600); }
   async function api(path, opts = {}) {
     const r = await fetch(API + path, { ...opts, headers: { "Content-Type": "application/json", Authorization: "Bearer " + token, ...(opts.headers || {}) } });
@@ -88,9 +102,17 @@
   function show() { $("#login").hidden = !!token; $("#app").hidden = !token; if (token) loadAll(); }
 
   $("#login-form").addEventListener("submit", async (e) => {
-    e.preventDefault(); const m = $("#login-msg"); m.textContent = ""; m.className = "form-msg";
-    try { const r = await api("/api/admin/login", { method: "POST", body: JSON.stringify({ password: $("#pw").value }) }); token = r.token; sessionStorage.setItem("bagel-admin", token); $("#pw").value = ""; show(); }
-    catch (err) { m.className = "form-msg err"; m.textContent = err.message === "Failed to fetch" ? "Cannot reach the server." : err.message; }
+    e.preventDefault(); const m = $("#login-msg"), btn = $("#login-btn"); m.className = "form-msg";
+    btn.disabled = true; btn.textContent = "Signing in...";
+    m.textContent = "Checking your password. If the site has been idle this can take up to a minute.";
+    const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 90000);
+    try {
+      const r = await api("/api/admin/login", { method: "POST", signal: ctl.signal, body: JSON.stringify({ password: $("#pw").value.trim() }) });
+      token = r.token; sessionStorage.setItem("bagel-admin", token); $("#pw").value = ""; m.textContent = ""; show();
+    } catch (err) {
+      m.className = "form-msg err";
+      m.textContent = err.name === "AbortError" || err.message === "Failed to fetch" ? "The server did not answer. Wait a minute and try again." : err.message === "Wrong password" ? "That password is not right. Tap the eye icon to check what you typed." : err.message;
+    } finally { clearTimeout(timer); btn.disabled = false; btn.textContent = "Sign in"; }
   });
   $("#logout").addEventListener("click", signOut);
   document.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => {
@@ -160,7 +182,15 @@
     const s = await api("/api/admin/settings");
     $("#tab-settings").innerHTML = `<h2 style="font-size:1.8rem;margin-bottom:1rem">Site info</h2><form id="set-form">`
       + Object.entries(SETTING_LABELS).map(([k, [label, kind]]) => `<div class="field"><label for="s-${k}">${label}</label>${kind === "textarea" ? `<textarea id="s-${k}" data-k="${k}" rows="2">${esc(s[k] || "")}</textarea>` : `<input id="s-${k}" data-k="${k}" value="${esc(s[k] || "")}">`}</div>`).join("")
-      + `<button class="btn btn-primary" type="submit">Save site info</button></form>`;
+      + `<button class="btn btn-primary" type="submit">Save site info</button></form>`
+      + `<form class="pw-card" id="pw-form"><h3 style="font-size:1.6rem;margin-bottom:.75rem">Change password</h3>`
+      + [["pw-cur", "Current password", "current-password"], ["pw-new", "New password (8 or more characters)", "new-password"]].map(([id, l, ac]) => `<div class="field"><label for="${id}">${l}</label><div class="pw"><input id="${id}" type="password" autocomplete="${ac}" autocapitalize="none" spellcheck="false" required minlength="${id === "pw-new" ? 8 : 1}">${EYE}</div></div>`).join("")
+      + `<button class="btn btn-primary" type="submit">Change password</button></form>`;
+    $("#pw-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      try { await api("/api/admin/password", { method: "POST", body: JSON.stringify({ current: $("#pw-cur").value, new: $("#pw-new").value }) }); toast("Password changed"); e.target.reset(); }
+      catch (err) { toast(err.message); }
+    });
     $("#set-form").addEventListener("submit", async (e) => {
       e.preventDefault(); const body = {}; e.target.querySelectorAll("[data-k]").forEach((f) => (body[f.dataset.k] = f.value.trim()));
       body.whatsapp = body.whatsapp.replace(/\D/g, ""); body.instagram = body.instagram.replace(/^@/, "");

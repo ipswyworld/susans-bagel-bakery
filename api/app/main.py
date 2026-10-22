@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from . import config
 from .db import Base, SessionLocal, engine, get_db
 from .models import MenuItem, Review, Setting
-from .security import make_token, require_admin, verify_password
+from .security import hash_password, make_token, require_admin, verify_password
 from .seed import seed
 
 
@@ -60,6 +60,23 @@ class LoginIn(BaseModel):
     password: str
 
 
+class PasswordIn(BaseModel):
+    current: str
+    new: str = Field(min_length=8, max_length=100)
+
+
+HASH_KEY = "_admin_hash"  # underscore keys are private: never served by the settings endpoints
+
+
+def _public_settings(db: Session) -> dict:
+    return {s.key: s.value for s in db.scalars(select(Setting)) if not s.key.startswith("_")}
+
+
+def _db_hash(db: Session) -> str:
+    row = db.get(Setting, HASH_KEY)
+    return row.value if row else ""
+
+
 def item_out(m: MenuItem) -> dict:
     return {c: getattr(m, c) for c in ("id", "name", "description", "price_kes", "category", "art", "available", "sort_order")}
 
@@ -97,7 +114,7 @@ def health():
 def public(db: Session = Depends(get_db)):
     """Everything the storefront needs in one request (also what menu.json mirrors)."""
     menu = db.scalars(select(MenuItem).order_by(MenuItem.sort_order, MenuItem.id)).all()
-    settings = {s.key: s.value for s in db.scalars(select(Setting))}
+    settings = _public_settings(db)
     approved = db.scalars(select(Review).where(Review.status == "approved").order_by(Review.created_at.desc()).limit(30)).all()
     count, avg = db.execute(select(func.count(Review.id), func.avg(Review.rating)).where(Review.status == "approved")).one()
     return {
@@ -124,8 +141,8 @@ def submit_review(body: ReviewIn, request: Request, db: Session = Depends(get_db
 
 
 @app.post("/api/admin/login")
-def login(body: LoginIn):
-    if not verify_password(body.password):
+def login(body: LoginIn, db: Session = Depends(get_db)):
+    if not verify_password(body.password.strip(), _db_hash(db)):
         time.sleep(0.6)  # slow down guessing
         raise HTTPException(401, "Wrong password")
     return {"token": make_token()}
@@ -190,20 +207,34 @@ def admin_review_delete(review_id: int, db: Session = Depends(get_db)):
         db.commit()
 
 
+@app.post("/api/admin/password", dependencies=admin)
+def admin_change_password(body: PasswordIn, db: Session = Depends(get_db)):
+    if not verify_password(body.current.strip(), _db_hash(db)):
+        time.sleep(0.6)
+        raise HTTPException(403, "Current password is wrong")
+    row = db.get(Setting, HASH_KEY)
+    if row:
+        row.value = hash_password(body.new.strip())
+    else:
+        db.add(Setting(key=HASH_KEY, value=hash_password(body.new.strip())))
+    db.commit()
+    return {"ok": True}
+
+
 @app.get("/api/admin/settings", dependencies=admin)
 def admin_settings(db: Session = Depends(get_db)):
-    return {s.key: s.value for s in db.scalars(select(Setting))}
+    return _public_settings(db)
 
 
 @app.put("/api/admin/settings", dependencies=admin)
 def admin_settings_update(body: dict[str, str], db: Session = Depends(get_db)):
     for key, value in body.items():
-        if len(key) > 48 or len(value) > 1000:
-            raise HTTPException(422, "Value too long")
+        if len(key) > 48 or len(value) > 1000 or key.startswith("_"):
+            raise HTTPException(422, "Invalid setting")
         row = db.get(Setting, key)
         if row:
             row.value = value
         else:
             db.add(Setting(key=key, value=value))
     db.commit()
-    return {s.key: s.value for s in db.scalars(select(Setting))}
+    return _public_settings(db)

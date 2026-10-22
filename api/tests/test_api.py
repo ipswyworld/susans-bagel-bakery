@@ -62,3 +62,17 @@ def test_menu_crud_and_sold_out(client):
     item = [m for m in client.get("/api/public").json()["menu"] if m["id"] == new["id"]][0]
     assert item["available"] is False
     assert client.delete(f"/api/admin/menu/{new['id']}", headers=h).status_code == 204
+
+
+def test_change_password_and_hash_never_leaks(client):
+    h = login(client)
+    assert client.post("/api/admin/password", headers=h, json={"current": "wrong", "new": "newpass123"}).status_code == 403
+    assert client.post("/api/admin/password", headers=h, json={"current": "pw", "new": "short"}).status_code == 422
+    assert client.post("/api/admin/password", headers=h, json={"current": "pw", "new": "newpass123"}).status_code == 200
+    assert client.post("/api/admin/login", json={"password": "pw"}).status_code == 401
+    r = client.post("/api/admin/login", json={"password": " newpass123 "})  # stray spaces are trimmed
+    assert r.status_code == 200
+    h2 = {"Authorization": f"Bearer {r.json()['token']}"}
+    assert not any(k.startswith("_") for k in client.get("/api/public").json()["settings"])
+    assert not any(k.startswith("_") for k in client.get("/api/admin/settings", headers=h2).json())
+    assert client.put("/api/admin/settings", headers=h2, json={"_admin_hash": "x"}).status_code == 422
