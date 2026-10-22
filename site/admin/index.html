@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Bakery admin | Susan's Bagel Bakery</title>
+<link rel="icon" href="../favicon.ico" sizes="48x48">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700&family=Rokkitt:wght@700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  body { padding-bottom: 3rem; }
+  .wrap { max-width: 62rem; margin: 0 auto; padding: 1.25rem var(--gutter) 3rem; }
+  .bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+  .bar h1 { font-size: 2.4rem; }
+  .tabs { display: flex; gap: .5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+  .tabs button[aria-selected=true] { background: var(--ink); color: var(--yellow); }
+  .tabs button { font: 700 1rem/1 var(--body); padding: .8rem 1.3rem; border-radius: 999px; border: 2.5px solid var(--ink); background: transparent; cursor: pointer; min-height: 2.9rem; }
+  .panel { background: var(--butter); border-radius: 1.5rem; padding: clamp(1rem, 3vw, 1.75rem); box-shadow: 0 8px 0 var(--yellow-deep); }
+  .login { max-width: 26rem; margin: 12vh auto; }
+  .login h1 { font-size: 2.6rem; margin-bottom: 1rem; }
+  .item { display: grid; gap: .6rem; grid-template-columns: 1fr; padding: 1rem 0; border-bottom: 2px dotted var(--brown); }
+  .item:last-child { border: 0; }
+  .item .cols { display: grid; gap: .6rem; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); }
+  .item label { font-weight: 700; font-size: .9rem; display: block; margin-bottom: .2rem; }
+  .item .acts { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; }
+  .item .btn { min-height: 2.6rem; padding: .6rem 1.1rem; box-shadow: none; }
+  .chk { display: inline-flex; gap: .5rem; align-items: center; font-weight: 700; min-height: 2.6rem; }
+  .chk input { width: 1.4rem; height: 1.4rem; accent-color: var(--brown); }
+  .rev { padding: 1rem 0; border-bottom: 2px dotted var(--brown); }
+  .rev .meta { display: flex; gap: .75rem; flex-wrap: wrap; align-items: center; margin-bottom: .4rem; font-weight: 700; }
+  .tag { font-size: .8rem; padding: .2rem .6rem; border-radius: 99px; border: 2px solid var(--ink); }
+  .tag.pending { background: var(--yellow); } .tag.approved { background: var(--brown); color: #fff; } .tag.rejected { background: transparent; color: var(--danger); border-color: var(--danger); }
+  .toast { position: fixed; left: 50%; bottom: 1.25rem; translate: -50% 0; background: var(--ink); color: var(--yellow); padding: .8rem 1.4rem; border-radius: 99px; font-weight: 700; z-index: 60; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div id="login" class="login panel" hidden>
+  <h1>Bakery admin</h1>
+  <form id="login-form">
+    <div class="field"><label for="pw">Password</label><input id="pw" type="password" autocomplete="current-password" required></div>
+    <p class="form-msg" id="login-msg" role="alert"></p>
+    <button class="btn btn-primary btn-wide" type="submit">Sign in</button>
+  </form>
+</div>
+
+<div id="app" class="wrap" hidden>
+  <div class="bar"><h1>Bakery admin</h1><div><a class="btn btn-ghost" href="../" target="_blank">View site</a> <button class="btn btn-ghost" id="logout" type="button">Sign out</button></div></div>
+  <div class="tabs" role="tablist">
+    <button role="tab" aria-selected="true" data-tab="menu">Menu</button>
+    <button role="tab" aria-selected="false" data-tab="reviews">Reviews <span id="pending-n"></span></button>
+    <button role="tab" aria-selected="false" data-tab="settings">Site info</button>
+  </div>
+  <section class="panel" id="tab-menu"></section>
+  <section class="panel" id="tab-reviews" hidden></section>
+  <section class="panel" id="tab-settings" hidden></section>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script src="../js/config.js"></script>
+<script>
+(() => {
+  const API = (window.BAGEL_CONFIG.API_URL || "").replace(/\/$/, "");
+  const $ = (s, e = document) => e.querySelector(s);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  let token = sessionStorage.getItem("bagel-admin") || "";
+  const ARTS = ["plain", "sesame", "everything", "cinnamon", "cheese", "tub", "box", "drink"];
+  const CATS = ["bagel", "spread", "box", "drink"];
+  const SETTING_LABELS = {
+    whatsapp: ["WhatsApp number (digits only, with country code, e.g. 2547...)", "input"],
+    instagram: ["Instagram handle (no @)", "input"],
+    address: ["Address", "input"], hours: ["Opening hours", "input"],
+    delivery_info: ["Delivery details", "textarea"], lead_time: ["How much notice you need", "input"],
+    min_order_kes: ["Minimum order in KES (0 for none)", "input"], google_review_url: ["Google review link (optional)", "input"],
+  };
+
+  function toast(t) { const el = $("#toast"); el.textContent = t; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => (el.hidden = true), 2600); }
+  async function api(path, opts = {}) {
+    const r = await fetch(API + path, { ...opts, headers: { "Content-Type": "application/json", Authorization: "Bearer " + token, ...(opts.headers || {}) } });
+    if (r.status === 401 && path !== "/api/admin/login") { signOut(); throw new Error("Signed out"); }
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || "Something went wrong");
+    return r.status === 204 ? null : r.json();
+  }
+  function signOut() { token = ""; sessionStorage.removeItem("bagel-admin"); show(); }
+  function show() { $("#login").hidden = !!token; $("#app").hidden = !token; if (token) loadAll(); }
+
+  $("#login-form").addEventListener("submit", async (e) => {
+    e.preventDefault(); const m = $("#login-msg"); m.textContent = ""; m.className = "form-msg";
+    try { const r = await api("/api/admin/login", { method: "POST", body: JSON.stringify({ password: $("#pw").value }) }); token = r.token; sessionStorage.setItem("bagel-admin", token); $("#pw").value = ""; show(); }
+    catch (err) { m.className = "form-msg err"; m.textContent = err.message === "Failed to fetch" ? "Cannot reach the server." : err.message; }
+  });
+  $("#logout").addEventListener("click", signOut);
+  document.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => {
+    document.querySelectorAll("[data-tab]").forEach((x) => x.setAttribute("aria-selected", x === b));
+    ["menu", "reviews", "settings"].forEach((t) => ($("#tab-" + t).hidden = t !== b.dataset.tab));
+  }));
+
+  /* menu */
+  const itemRow = (m) => `
+    <div class="item" data-id="${m.id ?? ""}">
+      <div class="cols">
+        <div style="grid-column: span 2"><label>Name</label><input data-f="name" value="${esc(m.name)}" maxlength="80"></div>
+        <div><label>Price (KES)</label><input data-f="price_kes" type="number" min="0" value="${m.price_kes}"></div>
+        <div><label>Group</label><select data-f="category">${CATS.map((c) => `<option ${c === m.category ? "selected" : ""}>${c}</option>`).join("")}</select></div>
+        <div><label>Picture</label><select data-f="art">${ARTS.map((c) => `<option ${c === m.art ? "selected" : ""}>${c}</option>`).join("")}</select></div>
+        <div><label>Order on page</label><input data-f="sort_order" type="number" value="${m.sort_order}"></div>
+      </div>
+      <div><label>Description</label><input data-f="description" value="${esc(m.description)}" maxlength="240"></div>
+      <div class="acts">
+        <label class="chk"><input data-f="available" type="checkbox" ${m.available ? "checked" : ""}> Available today</label>
+        <button class="btn btn-primary" data-do="save" type="button">${m.id ? "Save" : "Add item"}</button>
+        ${m.id ? `<button class="btn btn-ghost" data-do="del" type="button">Delete</button>` : ""}
+      </div>
+    </div>`;
+  async function loadMenu() {
+    const items = await api("/api/admin/menu");
+    $("#tab-menu").innerHTML = `<h2 style="font-size:1.8rem;margin-bottom:.5rem">Menu</h2><p class="fine" style="margin:0 0 .5rem">Changes show on the site straight away. Untick "Available today" to mark an item sold out.</p>`
+      + `<h3 style="margin:1rem 0 0">Add a new item</h3>` + itemRow({ name: "", description: "", price_kes: 0, category: "bagel", art: "plain", available: true, sort_order: items.length })
+      + `<h3 style="margin:1.5rem 0 0">Current items</h3>` + items.map(itemRow).join("");
+  }
+  $("#tab-menu").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-do]"); if (!b) return;
+    const row = b.closest(".item"), id = row.dataset.id;
+    try {
+      if (b.dataset.do === "del") { if (!confirm("Delete this item for good?")) return; await api("/api/admin/menu/" + id, { method: "DELETE" }); toast("Deleted"); }
+      else {
+        const body = {}; row.querySelectorAll("[data-f]").forEach((f) => (body[f.dataset.f] = f.type === "checkbox" ? f.checked : f.type === "number" ? Number(f.value) : f.value));
+        if (!body.name.trim()) throw new Error("Give the item a name");
+        await api("/api/admin/menu" + (id ? "/" + id : ""), { method: id ? "PUT" : "POST", body: JSON.stringify(body) }); toast(id ? "Saved" : "Added");
+      }
+      loadMenu();
+    } catch (err) { toast(err.message); }
+  });
+
+  /* reviews */
+  async function loadReviews() {
+    const rs = await api("/api/admin/reviews"), p = rs.filter((r) => r.status === "pending").length;
+    $("#pending-n").textContent = p ? `(${p} new)` : "";
+    $("#tab-reviews").innerHTML = `<h2 style="font-size:1.8rem;margin-bottom:.5rem">Reviews</h2><p class="fine" style="margin:0">Only approved reviews appear on the site.</p>`
+      + (rs.length ? rs.map((r) => `<div class="rev" data-id="${r.id}"><div class="meta"><span>${"★".repeat(r.rating)}${"☆".repeat(5 - r.rating)}</span><span>${esc(r.name)}</span><span class="tag ${r.status}">${r.status}</span></div><p>${esc(r.comment)}</p>
+        <div class="acts" style="display:flex;gap:.5rem;margin-top:.6rem;flex-wrap:wrap">
+          ${r.status !== "approved" ? `<button class="btn btn-primary" style="min-height:2.6rem;padding:.6rem 1.1rem;box-shadow:none" data-r="approved" type="button">Approve</button>` : ""}
+          ${r.status !== "rejected" ? `<button class="btn btn-ghost" style="min-height:2.6rem;padding:.6rem 1.1rem" data-r="rejected" type="button">Reject</button>` : ""}
+          <button class="btn btn-ghost" style="min-height:2.6rem;padding:.6rem 1.1rem" data-r="delete" type="button">Delete</button></div></div>`).join("") : `<p style="margin-top:1rem">No reviews yet.</p>`);
+  }
+  $("#tab-reviews").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-r]"); if (!b) return; const id = b.closest(".rev").dataset.id;
+    try {
+      if (b.dataset.r === "delete") { if (!confirm("Delete this review for good?")) return; await api("/api/admin/reviews/" + id, { method: "DELETE" }); }
+      else await api("/api/admin/reviews/" + id, { method: "PATCH", body: JSON.stringify({ status: b.dataset.r }) });
+      toast("Done"); loadReviews();
+    } catch (err) { toast(err.message); }
+  });
+
+  /* settings */
+  async function loadSettings() {
+    const s = await api("/api/admin/settings");
+    $("#tab-settings").innerHTML = `<h2 style="font-size:1.8rem;margin-bottom:1rem">Site info</h2><form id="set-form">`
+      + Object.entries(SETTING_LABELS).map(([k, [label, kind]]) => `<div class="field"><label for="s-${k}">${label}</label>${kind === "textarea" ? `<textarea id="s-${k}" data-k="${k}" rows="2">${esc(s[k] || "")}</textarea>` : `<input id="s-${k}" data-k="${k}" value="${esc(s[k] || "")}">`}</div>`).join("")
+      + `<button class="btn btn-primary" type="submit">Save site info</button></form>`;
+    $("#set-form").addEventListener("submit", async (e) => {
+      e.preventDefault(); const body = {}; e.target.querySelectorAll("[data-k]").forEach((f) => (body[f.dataset.k] = f.value.trim()));
+      body.whatsapp = body.whatsapp.replace(/\D/g, ""); body.instagram = body.instagram.replace(/^@/, "");
+      try { await api("/api/admin/settings", { method: "PUT", body: JSON.stringify(body) }); toast("Saved"); loadSettings(); } catch (err) { toast(err.message); }
+    });
+  }
+  const loadAll = () => Promise.all([loadMenu(), loadReviews(), loadSettings()]).catch((e) => toast(e.message));
+  show();
+})();
+</script>
+</body>
+</html>
