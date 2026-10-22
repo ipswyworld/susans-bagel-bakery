@@ -44,6 +44,7 @@ def faq(s: dict) -> list[tuple[str, str]]:
         ("Do you deliver?", s["delivery_info"]),
         ("How much notice do you need?", s["lead_time"]),
         ("Where are you and when are you open?", f"{s['address']}. Open {s['hours']}."),
+        ("Can I suggest a flavour?", "Yes. Tell us on WhatsApp which flavour you would like to see, we love hearing what to bake next."),
         ("Can I change or cancel my order?",
          "Message us in the same WhatsApp chat as soon as you can. Changes are easiest before baking starts, so earlier is better."),
     ]

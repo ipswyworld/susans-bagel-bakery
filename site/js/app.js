@@ -27,10 +27,10 @@
     }
     return pts;
   }
-  function bagelBase(extra) {
+  function bagelBase(extra, body = "#E39B34", top = "#F6C264") {
     return `<ellipse cx="60" cy="82" rx="46" ry="5" fill="${INK}" opacity=".18"/>
-      <ellipse cx="60" cy="44" rx="54" ry="38" fill="#E39B34" stroke="${INK}" stroke-width="3"/>
-      <ellipse cx="60" cy="40" rx="49" ry="33" fill="#F6C264"/>
+      <ellipse cx="60" cy="44" rx="54" ry="38" fill="${body}" stroke="${INK}" stroke-width="3"/>
+      <ellipse cx="60" cy="40" rx="49" ry="33" fill="${top}"/>
       ${extra}
       <ellipse cx="60" cy="43" rx="17" ry="11" fill="#7a3d12" stroke="${INK}" stroke-width="3"/>
       <ellipse cx="60" cy="46" rx="13" ry="6" fill="#4a2208"/>
@@ -44,6 +44,14 @@
     everything: () => bagelBase(seeds(14, 21) + dots(14, 22, INK, 1.3) + ringPoints(6, 23).map(([x, y]) => `<rect x="${x - 2}" y="${y - 1.4}" width="4" height="2.8" rx="1" fill="#FBD58C" stroke="${INK}" stroke-width=".5"/>`).join("")),
     cinnamon: () => bagelBase(`<path d="M22 46 Q60 6 98 46 M30 52 Q60 22 90 52 M26 38 Q60 -2 94 38" fill="none" stroke="#9a5420" stroke-width="3.2" stroke-linecap="round" opacity=".75"/>` + ringPoints(7, 31).map(([x, y]) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.7" fill="#5a2a14" stroke="${INK}" stroke-width=".6"/>`).join("")),
     cheese: () => bagelBase(ringPoints(9, 41).map(([x, y]) => `<ellipse cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" rx="7" ry="4.2" fill="#FFE18A" stroke="#d6962f" stroke-width="1"/>`).join("") + dots(8, 42, "#c9801f", 1.6)),
+    wholewheat: () => bagelBase(dots(16, 51, "#7a4a22", 1.1) + seeds(6, 52, "#EBC98A"), "#A8692F", "#C98E4F"),
+    salt: () => bagelBase(ringPoints(22, 61).map(([x, y]) => `<rect x="${(x - 1.6).toFixed(1)}" y="${(y - 1.6).toFixed(1)}" width="3.2" height="3.2" rx=".8" fill="#FFFDF2" stroke="${INK}" stroke-width=".5"/>`).join("")),
+    poppy: () => bagelBase(dots(34, 71, INK, 1.1) + dots(6, 72, "#FFF0C4", 1)),
+    gingerbread: () => bagelBase(`<path d="M24 40 Q40 26 60 30 T96 38" fill="none" stroke="#FFF3CF" stroke-width="3" stroke-linecap="round" stroke-dasharray="1 6"/>` + dots(10, 81, "#FFF3CF", 1.4), "#8A4B1E", "#A8662E"),
+    chocolate: () => bagelBase(ringPoints(14, 91).map(([x, y, r]) => `<path d="M${x.toFixed(1)} ${(y - 3).toFixed(1)}l3.2 5.4h-6.4z" transform="rotate(${r.toFixed(0)} ${x.toFixed(1)} ${y.toFixed(1)})" fill="#4a2208" stroke="${INK}" stroke-width=".6"/>`).join("")),
+    tomato: () => bagelBase(ringPoints(9, 101).map(([x, y, r]) => `<ellipse cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" rx="4.2" ry="2.4" transform="rotate(${r.toFixed(0)} ${x.toFixed(1)} ${y.toFixed(1)})" fill="#C4442C" stroke="${INK}" stroke-width=".7"/>`).join("") + seeds(8, 102)),
+    jalapeno: () => bagelBase(ringPoints(8, 111).map(([x, y]) => `<ellipse cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" rx="7" ry="4.2" fill="#FFE18A" stroke="#d6962f" stroke-width="1"/>`).join("") + ringPoints(7, 112).map(([x, y]) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.2" fill="#8DB34A" stroke="${INK}" stroke-width=".8"/><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="1.1" fill="#E8F2B8"/>`).join("")),
+    wwcinnamon: () => bagelBase(`<path d="M22 46 Q60 6 98 46 M30 52 Q60 22 90 52 M26 38 Q60 -2 94 38" fill="none" stroke="#6b3a14" stroke-width="3.2" stroke-linecap="round" opacity=".75"/>` + ringPoints(7, 121).map(([x, y]) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.7" fill="#4a2010" stroke="${INK}" stroke-width=".6"/>`).join(""), "#A8692F", "#C98E4F"),
     tub: () => `<ellipse cx="60" cy="82" rx="40" ry="5" fill="${INK}" opacity=".18"/>
       <path d="M22 34h76l-6 44a6 6 0 0 1-6 5H34a6 6 0 0 1-6-5L22 34Z" fill="#fff6dc" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/>
       <rect x="16" y="20" width="88" height="18" rx="7" fill="#A9591B" stroke="${INK}" stroke-width="3"/>

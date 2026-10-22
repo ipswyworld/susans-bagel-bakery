@@ -73,7 +73,7 @@
   const $ = (s, e = document) => e.querySelector(s);
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   let token = sessionStorage.getItem("bagel-admin") || "";
-  const ARTS = ["plain", "sesame", "everything", "cinnamon", "cheese", "tub", "box", "drink"];
+  const ARTS = ["plain", "wholewheat", "salt", "sesame", "poppy", "everything", "cinnamon", "wwcinnamon", "cheese", "jalapeno", "chocolate", "tomato", "gingerbread", "tub", "box", "drink"];
   const CATS = ["bagel", "spread", "box", "drink"];
   const SETTING_LABELS = {
     whatsapp: ["WhatsApp number (digits only, with country code, e.g. 2547...)", "input"],
